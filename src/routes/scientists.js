@@ -16,22 +16,26 @@ const storage = new CloudinaryStorage({
     allowed_formats: ['jpg', 'jpeg', 'png', 'gif'],
     transformation: [
       { width: 1000, height: 1000, crop: 'limit' }, // 主图片尺寸限制
-    ]
+    ],
+    format: 'jpg', // 统一输出格式
+    resource_type: 'auto' // 自动检测资源类型
   }
 });
 
+// 文件上传中间件
 const upload = multer({
   storage: storage,
   limits: {
     fileSize: 5 * 1024 * 1024 // 限制5MB
   },
   fileFilter: function (req, file, cb) {
-    if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
-      return cb(new Error('只允许上传图片文件！'), false);
+    // 检查文件类型
+    if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
+      return cb(new Error('只允许上传 JPG、JPEG、PNG 或 GIF 格式的图片！'), false);
     }
     cb(null, true);
   }
-});
+}).single('image');
 
 // 获取所有科学家
 router.get('/', async (req, res) => {
@@ -121,10 +125,26 @@ const generateRandomColor = () => {
 };
 
 // 创建新科学家（支持直接数据和文件上传）
-router.post('/', upload.single('image'), async (req, res) => {
+router.post('/', async (req, res) => {
   try {
-    console.log('收到创建科学家请求，请求体:', req.body);
-    console.log('文件信息:', req.file);
+    console.log('收到创建科学家请求');
+    console.log('请求体:', req.body);
+    console.log('请求头:', req.headers);
+
+    // 使用 Promise 包装 multer 中间件
+    await new Promise((resolve, reject) => {
+      upload(req, res, function(err) {
+        if (err) {
+          console.error('文件上传错误:', err);
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    console.log('文件上传完成，文件信息:', req.file);
+    console.log('更新后的请求体:', req.body);
 
     // 验证必填字段
     if (!req.body.name || !req.body.subject) {
@@ -136,18 +156,12 @@ router.post('/', upload.single('image'), async (req, res) => {
       subject: req.body.subject,
       color: generateRandomColor()
     };
-    console.log('处理后的科学家数据:', scientistData);
 
     // 处理图片
     if (req.file) {
       // 如果是文件上传
       console.log('处理上传的图片文件:', req.file);
-      try {
-        scientistData.image = req.file.path; // Cloudinary 会返回 public_id
-      } catch (uploadError) {
-        console.error('图片上传失败:', uploadError);
-        return res.status(500).json({ message: '图片上传失败，请重试' });
-      }
+      scientistData.image = req.file.path; // Cloudinary 返回的路径
     } else if (req.body.image && req.body.image.startsWith('http')) {
       // 如果是 URL 上传
       console.log('处理图片 URL:', req.body.image);
@@ -176,7 +190,6 @@ router.post('/', upload.single('image'), async (req, res) => {
         });
       } catch (urlError) {
         console.error('生成图片 URL 失败:', urlError);
-        // 即使生成 URL 失败，我们仍然返回成功，因为数据已经保存
         response.image = '';
         response.thumbnail = '';
       }
@@ -189,9 +202,18 @@ router.post('/', upload.single('image'), async (req, res) => {
   } catch (error) {
     console.error('创建科学家失败:', error);
     if (error.name === 'ValidationError') {
-      return res.status(400).json({ message: '数据验证失败', details: error.message });
+      return res.status(400).json({ 
+        message: '数据验证失败', 
+        details: error.message 
+      });
     }
-    res.status(500).json({ message: '创建科学家失败，请重试', error: error.message });
+    if (error.message.includes('只允许上传')) {
+      return res.status(400).json({ message: error.message });
+    }
+    res.status(500).json({ 
+      message: '创建科学家失败，请重试',
+      error: error.message
+    });
   }
 });
 
