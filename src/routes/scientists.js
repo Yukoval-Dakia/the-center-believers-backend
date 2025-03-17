@@ -38,11 +38,6 @@ router.get('/', async (req, res) => {
   try {
     console.log('收到获取科学家列表请求');
     
-    // 添加CORS头
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
-    
     const scientists = await Scientist.find().sort({ createdAt: -1 });
     
     // 为每个科学家生成完整的图片 URL
@@ -76,8 +71,6 @@ router.get('/', async (req, res) => {
     return res.status(200).json(scientistsWithUrls);
   } catch (error) {
     console.error('获取科学家列表失败:', error);
-    // 添加CORS头到错误响应
-    res.header('Access-Control-Allow-Origin', '*');
     return res.status(500).json({ message: error.message });
   }
 });

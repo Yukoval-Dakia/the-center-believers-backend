@@ -42,8 +42,10 @@ app.use((req, res, next) => {
 // CORS配置
 app.use(cors({
   origin: ['https://yukoval-dakia.github.io', 'http://localhost:3000', 'https://worship.yukovalstudios.com'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+  credentials: true,
+  optionsSuccessStatus: 200
 }));
 
 // 基本中间件
