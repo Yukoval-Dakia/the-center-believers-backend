@@ -124,6 +124,13 @@ const generateRandomColor = () => {
 router.post('/', upload.single('image'), async (req, res) => {
   try {
     console.log('收到创建科学家请求，请求体:', req.body);
+    console.log('文件信息:', req.file);
+
+    // 验证必填字段
+    if (!req.body.name || !req.body.subject) {
+      return res.status(400).json({ message: '姓名和领域为必填项' });
+    }
+
     let scientistData = {
       name: req.body.name,
       subject: req.body.subject,
@@ -131,33 +138,48 @@ router.post('/', upload.single('image'), async (req, res) => {
     };
     console.log('处理后的科学家数据:', scientistData);
 
+    // 处理图片
     if (req.file) {
       // 如果是文件上传
-      console.log('收到图片文件:', req.file);
-      scientistData.image = req.file.filename;
+      console.log('处理上传的图片文件:', req.file);
+      try {
+        scientistData.image = req.file.path; // Cloudinary 会返回 public_id
+      } catch (uploadError) {
+        console.error('图片上传失败:', uploadError);
+        return res.status(500).json({ message: '图片上传失败，请重试' });
+      }
     } else if (req.body.image && req.body.image.startsWith('http')) {
       // 如果是 URL 上传
-      console.log('收到图片 URL:', req.body.image);
+      console.log('处理图片 URL:', req.body.image);
       scientistData.image = req.body.image;
     } else {
       return res.status(400).json({ message: '请提供图片文件或有效的图片 URL' });
     }
 
-    console.log('准备创建科学家文档');
+    console.log('准备创建科学家文档:', scientistData);
     const scientist = new Scientist(scientistData);
-    console.log('保存科学家文档');
+    
+    console.log('保存科学家文档...');
     const newScientist = await scientist.save();
+    console.log('科学家文档保存成功');
     
     // 在响应中添加完整的图片 URL
     const response = newScientist.toObject();
     if (!response.image.startsWith('http')) {
-      response.image = cloudinary.url(response.image);
-      response.thumbnail = cloudinary.url(response.image, {
-        width: 200,
-        height: 200,
-        crop: 'fill',
-        quality: 80
-      });
+      try {
+        response.image = cloudinary.url(response.image);
+        response.thumbnail = cloudinary.url(response.image, {
+          width: 200,
+          height: 200,
+          crop: 'fill',
+          quality: 80
+        });
+      } catch (urlError) {
+        console.error('生成图片 URL 失败:', urlError);
+        // 即使生成 URL 失败，我们仍然返回成功，因为数据已经保存
+        response.image = '';
+        response.thumbnail = '';
+      }
     } else {
       response.thumbnail = response.image;
     }
@@ -166,7 +188,10 @@ router.post('/', upload.single('image'), async (req, res) => {
     res.status(201).json(response);
   } catch (error) {
     console.error('创建科学家失败:', error);
-    res.status(400).json({ message: error.message });
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: '数据验证失败', details: error.message });
+    }
+    res.status(500).json({ message: '创建科学家失败，请重试', error: error.message });
   }
 });
 

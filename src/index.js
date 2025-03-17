@@ -217,6 +217,10 @@ app.get('/api/health', (req, res) => {
 app.get('/api/wordpress/pages/:slug', async (req, res) => {
   try {
     const { slug } = req.params;
+    if (!WP_URL) {
+      throw new Error('WordPress URL 未配置');
+    }
+    
     const wpApiUrl = `${WP_URL}/wp-json/wp/v2/pages?slug=${slug}&_embed`;
     console.log('请求WordPress API:', wpApiUrl);
     
@@ -224,38 +228,37 @@ app.get('/api/wordpress/pages/:slug', async (req, res) => {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
+      },
+      timeout: 5000 // 5秒超时
+    }).catch(error => {
+      console.error('WordPress API请求失败:', error.message);
+      if (error.response) {
+        throw new Error(`WordPress返回错误: ${error.response.status} - ${error.response.statusText}`);
+      } else if (error.request) {
+        throw new Error('无法连接到WordPress服务器');
+      } else {
+        throw error;
       }
     });
     
-    console.log('WordPress API响应:', response.data);
-    
-    if (response.data && response.data.length > 0) {
-      const page = response.data[0];
-      
-      // 优化内容
-      if (page.content && page.content.rendered) {
-        page.content.rendered = optimizeContent(page.content.rendered);
-      }
-      
-      res.json(page);
-    } else {
-      console.log('未找到页面内容，slug:', slug);
-      res.status(404).json({ message: '未找到页面内容' });
+    if (!response.data || response.data.length === 0) {
+      return res.status(404).json({ 
+        message: '未找到页面内容',
+        slug: slug
+      });
     }
+    
+    const page = response.data[0];
+    if (page.content && page.content.rendered) {
+      page.content.rendered = optimizeContent(page.content.rendered);
+    }
+    
+    res.json(page);
   } catch (error) {
     console.error('WordPress API错误:', error.message);
-    console.error('完整错误:', error);
-    
     res.status(500).json({ 
       message: '无法获取WordPress内容', 
-      error: error.message,
-      wpUrl: WP_URL,
-      requestUrl: `${WP_URL}/wp-json/wp/v2/pages?slug=${req.params.slug}`,
-      details: error.response ? {
-        status: error.response.status,
-        statusText: error.response.statusText,
-        data: error.response.data
-      } : null
+      error: error.message
     });
   }
 });
@@ -263,14 +266,31 @@ app.get('/api/wordpress/pages/:slug', async (req, res) => {
 // 获取最新新闻
 app.get('/api/wordpress/posts', async (req, res) => {
   try {
+    if (!WP_URL) {
+      throw new Error('WordPress URL 未配置');
+    }
+
     const response = await axios.get(`${WP_URL}/wp-json/wp/v2/posts?_embed`, {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
+      },
+      timeout: 5000 // 5秒超时
+    }).catch(error => {
+      console.error('WordPress API请求失败:', error.message);
+      if (error.response) {
+        throw new Error(`WordPress返回错误: ${error.response.status} - ${error.response.statusText}`);
+      } else if (error.request) {
+        throw new Error('无法连接到WordPress服务器');
+      } else {
+        throw error;
       }
     });
     
-    // 优化每篇文章的内容
+    if (!response.data) {
+      return res.status(404).json({ message: '未找到文章' });
+    }
+
     const optimizedPosts = response.data.map(post => {
       if (post.content && post.content.rendered) {
         post.content.rendered = optimizeContent(post.content.rendered);
@@ -280,15 +300,10 @@ app.get('/api/wordpress/posts', async (req, res) => {
     
     res.json(optimizedPosts);
   } catch (error) {
-    console.error('WordPress API错误:', error);
+    console.error('WordPress API错误:', error.message);
     res.status(500).json({ 
       message: '无法获取WordPress文章', 
-      error: error.message,
-      details: error.response ? {
-        status: error.response.status,
-        statusText: error.response.statusText,
-        data: error.response.data
-      } : null
+      error: error.message
     });
   }
 });
