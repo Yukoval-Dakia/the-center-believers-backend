@@ -41,7 +41,7 @@ app.use((req, res, next) => {
 
 // CORS配置
 app.use(cors({
-  origin: ['https://yukoval-dakia.github.io', 'http://localhost:3000'],
+  origin: ['https://yukoval-dakia.github.io', 'http://localhost:3000', 'https://worship.yukovalstudios.com'],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));
