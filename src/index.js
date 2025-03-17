@@ -270,40 +270,55 @@ app.get('/api/wordpress/posts', async (req, res) => {
       throw new Error('WordPress URL 未配置');
     }
 
-    const response = await axios.get(`${WP_URL}/wp-json/wp/v2/posts?_embed`, {
+    // 从 WP_URL 中提取域名
+    const wpDomain = new URL(WP_URL).hostname;
+    const apiUrl = `https://public-api.wordpress.com/rest/v1.1/sites/${wpDomain}/posts`;
+    
+    console.log('尝试访问WordPress.com API:', apiUrl);
+
+    const response = await axios.get(apiUrl, {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       },
       timeout: 5000 // 5秒超时
     }).catch(error => {
-      console.error('WordPress API请求失败:', error.message);
+      console.error('WordPress.com API请求失败:', error.message);
+      console.error('完整错误信息:', error);
       if (error.response) {
-        throw new Error(`WordPress返回错误: ${error.response.status} - ${error.response.statusText}`);
+        console.error('WordPress.com响应状态:', error.response.status);
+        console.error('WordPress.com响应数据:', error.response.data);
+        throw new Error(`WordPress.com返回错误: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
       } else if (error.request) {
-        throw new Error('无法连接到WordPress服务器');
+        console.error('请求详情:', error.request);
+        throw new Error('无法连接到WordPress.com服务器');
       } else {
         throw error;
       }
     });
     
-    if (!response.data) {
-      return res.status(404).json({ message: '未找到文章' });
+    if (!response || !response.data || !response.data.posts) {
+      console.error('WordPress.com响应无数据');
+      return res.status(404).json({ 
+        message: '未找到文章',
+        error: 'WordPress.com响应无数据'
+      });
     }
 
-    const optimizedPosts = response.data.map(post => {
-      if (post.content && post.content.rendered) {
-        post.content.rendered = optimizeContent(post.content.rendered);
+    const optimizedPosts = response.data.posts.map(post => {
+      if (post.content) {
+        post.content = optimizeContent(post.content);
       }
       return post;
     });
-    
+
     res.json(optimizedPosts);
   } catch (error) {
-    console.error('WordPress API错误:', error.message);
-    res.status(500).json({ 
-      message: '无法获取WordPress文章', 
-      error: error.message
+    console.error('处理WordPress.com文章时出错:', error);
+    res.status(500).json({
+      message: '获取文章列表失败',
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
@@ -312,16 +327,36 @@ app.get('/api/wordpress/posts', async (req, res) => {
 app.get('/api/wordpress/posts/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const response = await axios.get(`${WP_URL}/wp-json/wp/v2/posts/${id}?_embed`, {
+    if (!WP_URL) {
+      throw new Error('WordPress URL 未配置');
+    }
+
+    // 从 WP_URL 中提取域名
+    const wpDomain = new URL(WP_URL).hostname;
+    const apiUrl = `https://public-api.wordpress.com/rest/v1.1/sites/${wpDomain}/posts/${id}`;
+
+    console.log('尝试获取WordPress.com文章:', apiUrl);
+    
+    const response = await axios.get(apiUrl, {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
-      }
+      },
+      timeout: 5000
     });
+    
+    if (!response.data) {
+      return res.status(404).json({ message: '未找到文章' });
+    }
+
+    // 优化内容
+    if (response.data.content) {
+      response.data.content = optimizeContent(response.data.content);
+    }
     
     res.json(response.data);
   } catch (error) {
-    console.error('WordPress API错误:', error);
+    console.error('WordPress.com API错误:', error);
     res.status(500).json({ 
       message: '无法获取文章内容', 
       error: error.message,
