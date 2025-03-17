@@ -24,10 +24,9 @@ const CACHE_DURATION = 3600000; // 1小时缓存
 
 // 使用 CDN 加速 GitHub raw 内容
 function convertToJsdelivr(githubUrl) {
-  return githubUrl.replace(
-    'https://raw.githubusercontent.com',
-    'https://cdn.jsdelivr.net/gh'
-  );
+  return githubUrl
+    .replace('https://raw.githubusercontent.com', 'https://cdn.jsdelivr.net/gh')
+    .replace('/master/master/', '/master/');
 }
 
 // 获取ACG图片列表
