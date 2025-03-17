@@ -5,19 +5,18 @@ const path = require('path');
 const fs = require('fs');
 const Scientist = require('../models/Scientist');
 const sharp = require('sharp');
+const cloudinary = require('../config/cloudinary');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
-// 配置文件上传
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = 'public/uploads/scientists';
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+// 配置 Cloudinary 存储
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'scientists',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif'],
+    transformation: [
+      { width: 1000, height: 1000, crop: 'limit' }, // 主图片尺寸限制
+    ]
   }
 });
 
@@ -102,22 +101,19 @@ router.post('/', upload.single('image'), async (req, res) => {
 
     if (req.file) {
       console.log('收到图片文件:', req.file);
-      // 如果有文件上传，处理图片
-      const thumbnailPath = req.file.path.replace(/\.[^/.]+$/, '') + '-thumb.jpg';
-      await sharp(req.file.path)
-        .resize(200, 200, {
-          fit: 'cover',
-          position: 'center'
-        })
-        .jpeg({ quality: 80 })
-        .toFile(thumbnailPath);
-
-      scientistData.image = `/uploads/scientists/${path.basename(req.file.path)}`;
-      scientistData.thumbnail = `/uploads/scientists/${path.basename(thumbnailPath)}`;
+      // Cloudinary 已经自动上传了图片，我们可以直接使用返回的 URL
+      scientistData.image = req.file.path;
+      // 创建缩略图 URL
+      const thumbnailUrl = cloudinary.url(req.file.filename, {
+        width: 200,
+        height: 200,
+        crop: 'fill',
+        quality: 80
+      });
+      scientistData.thumbnail = thumbnailUrl;
       console.log('处理后的图片路径:', { image: scientistData.image, thumbnail: scientistData.thumbnail });
     } else {
       console.log('没有收到图片文件');
-      // 如果没有文件上传，使用提供的图片路径
       scientistData.image = req.body.image;
       scientistData.thumbnail = req.body.thumbnail || req.body.image;
     }
@@ -152,24 +148,21 @@ router.patch('/:id', upload.single('image'), async (req, res) => {
     if (req.body.color) scientist.color = req.body.color;
 
     if (req.file) {
-      // 删除旧图片
-      const oldImagePath = path.join('public', scientist.image);
-      const oldThumbPath = path.join('public', scientist.thumbnail);
-      if (fs.existsSync(oldImagePath)) fs.unlinkSync(oldImagePath);
-      if (fs.existsSync(oldThumbPath)) fs.unlinkSync(oldThumbPath);
+      // 如果有新图片上传，删除旧图片
+      if (scientist.image) {
+        const publicId = scientist.image.split('/').pop().split('.')[0];
+        await cloudinary.uploader.destroy(publicId);
+      }
 
-      // 生成新缩略图
-      const thumbnailPath = req.file.path.replace(/\.[^/.]+$/, '') + '-thumb.jpg';
-      await sharp(req.file.path)
-        .resize(200, 200, {
-          fit: 'cover',
-          position: 'center'
-        })
-        .jpeg({ quality: 80 })
-        .toFile(thumbnailPath);
-
-      scientist.image = `/uploads/scientists/${path.basename(req.file.path)}`;
-      scientist.thumbnail = `/uploads/scientists/${path.basename(thumbnailPath)}`;
+      // 使用新上传的图片
+      scientist.image = req.file.path;
+      const thumbnailUrl = cloudinary.url(req.file.filename, {
+        width: 200,
+        height: 200,
+        crop: 'fill',
+        quality: 80
+      });
+      scientist.thumbnail = thumbnailUrl;
     }
 
     const updatedScientist = await scientist.save();
@@ -188,22 +181,10 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ message: '科学家不存在' });
     }
 
-    // 删除图片文件
-    if (scientist.image && scientist.image.startsWith('/uploads/')) {
-      const imagePath = path.join(__dirname, '..', 'public', scientist.image);
-      const thumbnailPath = path.join(__dirname, '..', 'public', scientist.thumbnail);
-      
-      try {
-        if (fs.existsSync(imagePath)) {
-          fs.unlinkSync(imagePath);
-        }
-        if (fs.existsSync(thumbnailPath)) {
-          fs.unlinkSync(thumbnailPath);
-        }
-      } catch (fileError) {
-        console.error('删除图片文件失败:', fileError);
-        // 继续执行，即使删除文件失败
-      }
+    // 删除 Cloudinary 上的图片
+    if (scientist.image) {
+      const publicId = scientist.image.split('/').pop().split('.')[0];
+      await cloudinary.uploader.destroy(publicId);
     }
 
     await Scientist.findByIdAndDelete(req.params.id);
