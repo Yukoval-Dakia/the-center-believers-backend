@@ -287,17 +287,20 @@ app.get('/api/wordpress/pages/:slug', async (req, res) => {
       throw new Error('WordPress URL 未配置');
     }
     
-    const wpApiUrl = `${WP_URL}/wp-json/wp/v2/pages?slug=${slug}&_embed`;
-    console.log('请求WordPress API:', wpApiUrl);
+    // 从 WP_URL 中提取域名
+    const wpDomain = new URL(WP_URL).hostname;
+    const apiUrl = `https://public-api.wordpress.com/rest/v1.1/sites/${wpDomain}/posts?type=page&slug=${slug}`;
     
-    const response = await axios.get(wpApiUrl, {
+    console.log('请求WordPress.com API:', apiUrl);
+    
+    const response = await axios.get(apiUrl, {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       },
-      timeout: 5000 // 5秒超时
+      timeout: 5000
     }).catch(error => {
-      console.error('WordPress API请求失败:', error.message);
+      console.error('WordPress.com API请求失败:', error.message);
       if (error.response) {
         throw new Error(`WordPress返回错误: ${error.response.status} - ${error.response.statusText}`);
       } else if (error.request) {
@@ -307,19 +310,36 @@ app.get('/api/wordpress/pages/:slug', async (req, res) => {
       }
     });
     
-    if (!response.data || response.data.length === 0) {
+    if (!response.data || !response.data.posts || response.data.posts.length === 0) {
       return res.status(404).json({ 
         message: '未找到页面内容',
         slug: slug
       });
     }
     
-    const page = response.data[0];
-    if (page.content && page.content.rendered) {
-      page.content.rendered = optimizeContent(page.content.rendered);
+    const page = response.data.posts[0];
+    if (page.content) {
+      page.content = optimizeContent(page.content);
     }
     
-    res.json(page);
+    // 转换数据格式以匹配前端期望的格式
+    const formattedPage = {
+      id: page.ID,
+      title: {
+        rendered: page.title
+      },
+      content: {
+        rendered: page.content
+      },
+      featured_media: page.featured_image || await getRandomImage(),
+      _embedded: {
+        author: [{
+          name: page.author ? page.author.name : '未知作者'
+        }]
+      }
+    };
+    
+    res.json(formattedPage);
   } catch (error) {
     console.error('WordPress API错误:', error.message);
     res.status(500).json({ 
