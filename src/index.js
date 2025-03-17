@@ -15,6 +15,32 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const WP_URL = process.env.WP_URL || 'http://wordpress:80';
 
+// 随机ACG图片API
+const ACG_IMAGE_API = 'https://random.downbt.best/random.php';
+
+// 获取随机ACG图片
+const getRandomACGImage = async () => {
+  try {
+    const response = await axios.get(ACG_IMAGE_API, {
+      timeout: 5000,
+      maxRedirects: 5, // 允许最多5次重定向
+      validateStatus: function (status) {
+        return status >= 200 && status < 400; // 接受200-399的状态码
+      }
+    });
+    
+    // 如果响应是重定向，返回最终的URL
+    if (response.request.res.responseUrl) {
+      return response.request.res.responseUrl;
+    }
+    
+    return ACG_IMAGE_API;
+  } catch (error) {
+    console.error('获取随机ACG图片失败:', error);
+    return null;
+  }
+};
+
 // 请求日志中间件
 app.use((req, res, next) => {
   console.log('收到请求:', {
@@ -281,7 +307,7 @@ app.get('/api/wordpress/posts', async (req, res) => {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       },
-      timeout: 5000 // 5秒超时
+      timeout: 5000
     });
 
     console.log('WordPress.com API响应:', JSON.stringify(response.data, null, 2));
@@ -294,17 +320,28 @@ app.get('/api/wordpress/posts', async (req, res) => {
       });
     }
 
-    // 转换数据格式以匹配前端期望的格式
-    const formattedPosts = response.data.posts.map(post => ({
-      ID: post.ID,
-      title: post.title,
-      excerpt: post.excerpt,
-      content: post.content,
-      date: post.date,
-      featured_image: post.featured_image,
-      author: {
-        name: post.author ? post.author.name : '未知作者'
+    // 转换数据格式以匹配前端期望的格式，并处理缺失的封面图片
+    const formattedPosts = await Promise.all(response.data.posts.map(async post => {
+      let featured_image = post.featured_image;
+      
+      // 如果没有封面图片，获取随机ACG图片
+      if (!featured_image) {
+        console.log(`文章 ${post.ID} 没有封面图片，尝试获取随机ACG图片`);
+        featured_image = await getRandomACGImage();
+        console.log(`文章 ${post.ID} 使用随机ACG图片:`, featured_image);
       }
+
+      return {
+        ID: post.ID,
+        title: post.title,
+        excerpt: post.excerpt,
+        content: post.content,
+        date: post.date,
+        featured_image: featured_image,
+        author: {
+          name: post.author ? post.author.name : '未知作者'
+        }
+      };
     }));
 
     res.json(formattedPosts);
@@ -346,12 +383,21 @@ app.get('/api/wordpress/posts/:id', async (req, res) => {
       return res.status(404).json({ message: '未找到文章' });
     }
 
+    // 如果没有封面图片，获取随机ACG图片
+    let featured_image = response.data.featured_image;
+    if (!featured_image) {
+      console.log(`文章 ${id} 没有封面图片，尝试获取随机ACG图片`);
+      featured_image = await getRandomACGImage();
+      console.log(`文章 ${id} 使用随机ACG图片:`, featured_image);
+    }
+
     // 转换数据格式以匹配前端期望的格式
     const formattedPost = {
       ID: response.data.ID,
       title: response.data.title,
       content: response.data.content,
       date: response.data.date,
+      featured_image: featured_image,
       author: {
         name: response.data.author ? response.data.author.name : '未知作者'
       }
