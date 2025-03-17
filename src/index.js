@@ -16,7 +16,7 @@ const PORT = process.env.PORT || 5000;
 const WP_URL = process.env.WP_URL || 'http://wordpress:80';
 
 // ACG图片源配置
-const ACG_GITHUB_API = 'https://api.github.com/repos/jyeric/acg-random-pictures/contents/GitHub源';
+const ACG_GITHUB_API = 'https://api.github.com/repos/jyeric/acg-pictures/contents';
 let acgImageList = null;
 let lastFetchTime = 0;
 const CACHE_DURATION = 3600000; // 1小时缓存
@@ -36,9 +36,9 @@ const fetchACGImageList = async () => {
       }
     });
 
-    // 过滤出图片文件
+    // 过滤出图片文件（排除.url文件和其他非图片文件）
     const images = response.data
-      .filter(file => /\.(jpg|jpeg|png|gif)$/i.test(file.name))
+      .filter(file => /\.(jpg|jpeg|png)$/i.test(file.name) && !file.name.endsWith('.url'))
       .map(file => file.download_url);
 
     acgImageList = images;
