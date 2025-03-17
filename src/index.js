@@ -15,29 +15,30 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const WP_URL = process.env.WP_URL || 'http://wordpress:80';
 
-// 随机ACG图片API
-const ACG_IMAGE_API = 'https://random.downbt.best/random.php';
+// 随机图片API（使用 Lorem Picsum）
+const RANDOM_IMAGE_API = 'https://picsum.photos/800/400';
 
-// 获取随机ACG图片
-const getRandomACGImage = async () => {
+// 获取随机图片
+const getRandomImage = async () => {
   try {
-    const response = await axios.get(ACG_IMAGE_API, {
+    const response = await axios.get(RANDOM_IMAGE_API, {
       timeout: 5000,
-      maxRedirects: 5, // 允许最多5次重定向
+      maxRedirects: 5,
       validateStatus: function (status) {
-        return status >= 200 && status < 400; // 接受200-399的状态码
+        return status >= 200 && status < 400;
       }
     });
     
-    // 如果响应是重定向，返回最终的URL
+    // Lorem Picsum 会自动重定向到随机图片
     if (response.request.res.responseUrl) {
       return response.request.res.responseUrl;
     }
     
-    return ACG_IMAGE_API;
+    return RANDOM_IMAGE_API;
   } catch (error) {
-    console.error('获取随机ACG图片失败:', error);
-    return null;
+    console.error('获取随机图片失败:', error);
+    // 返回一个默认图片URL
+    return 'https://picsum.photos/seed/default/800/400';
   }
 };
 
@@ -324,11 +325,11 @@ app.get('/api/wordpress/posts', async (req, res) => {
     const formattedPosts = await Promise.all(response.data.posts.map(async post => {
       let featured_image = post.featured_image;
       
-      // 如果没有封面图片，获取随机ACG图片
+      // 如果没有封面图片，获取随机图片
       if (!featured_image) {
-        console.log(`文章 ${post.ID} 没有封面图片，尝试获取随机ACG图片`);
-        featured_image = await getRandomACGImage();
-        console.log(`文章 ${post.ID} 使用随机ACG图片:`, featured_image);
+        console.log(`文章 ${post.ID} 没有封面图片，尝试获取随机图片`);
+        featured_image = await getRandomImage();
+        console.log(`文章 ${post.ID} 使用随机图片:`, featured_image);
       }
 
       return {
@@ -383,12 +384,12 @@ app.get('/api/wordpress/posts/:id', async (req, res) => {
       return res.status(404).json({ message: '未找到文章' });
     }
 
-    // 如果没有封面图片，获取随机ACG图片
+    // 如果没有封面图片，获取随机图片
     let featured_image = response.data.featured_image;
     if (!featured_image) {
-      console.log(`文章 ${id} 没有封面图片，尝试获取随机ACG图片`);
-      featured_image = await getRandomACGImage();
-      console.log(`文章 ${id} 使用随机ACG图片:`, featured_image);
+      console.log(`文章 ${id} 没有封面图片，尝试获取随机图片`);
+      featured_image = await getRandomImage();
+      console.log(`文章 ${id} 使用随机图片:`, featured_image);
     }
 
     // 转换数据格式以匹配前端期望的格式
