@@ -26,7 +26,7 @@ const CACHE_DURATION = 3600000; // 1小时缓存
 function convertToJsdelivr(githubUrl) {
   return githubUrl
     .replace('https://raw.githubusercontent.com', 'https://cdn.jsdelivr.net/gh')
-    .replace('/master/master/', '/master/');
+    .replace('/master/', '/');
 }
 
 // 获取ACG图片列表
