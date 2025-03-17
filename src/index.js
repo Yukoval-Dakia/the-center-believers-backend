@@ -7,6 +7,7 @@ const cheerio = require('cheerio');
 const path = require('path');
 const scientistsRouter = require('./routes/scientists');
 const messagesRouter = require('./routes/messages');
+const ACG_IMAGES = require('./acg-images.json');
 
 // 加载环境变量
 dotenv.config();
@@ -20,6 +21,14 @@ const ACG_GITHUB_API = 'https://api.github.com/repos/jyeric/acg-pictures/content
 let acgImageList = null;
 let lastFetchTime = 0;
 const CACHE_DURATION = 3600000; // 1小时缓存
+
+// 使用 CDN 加速 GitHub raw 内容
+function convertToJsdelivr(githubUrl) {
+  return githubUrl.replace(
+    'https://raw.githubusercontent.com',
+    'https://cdn.jsdelivr.net/gh'
+  );
+}
 
 // 获取ACG图片列表
 const fetchACGImageList = async () => {
@@ -59,19 +68,14 @@ const fetchACGImageList = async () => {
 // 获取随机ACG图片
 const getRandomImage = async () => {
   try {
-    const images = await fetchACGImageList();
-    if (!images || images.length === 0) {
-      throw new Error('没有可用的ACG图片');
-    }
-    
-    const randomIndex = Math.floor(Math.random() * images.length);
-    const imageUrl = images[randomIndex];
-    console.log('选择的随机ACG图片:', imageUrl);
-    return imageUrl;
+    // 直接从预加载的列表中随机选择
+    const randomImage = ACG_IMAGES[Math.floor(Math.random() * ACG_IMAGES.length)];
+    // 使用 jsDelivr CDN
+    return convertToJsdelivr(randomImage);
   } catch (error) {
-    console.error('获取随机ACG图片失败:', error);
-    // 返回一个默认图片URL
-    return 'https://picsum.photos/seed/default/800/400';
+    console.error('获取随机图片失败:', error);
+    // 如果出错则使用 Picsum 作为后备
+    return 'https://picsum.photos/800/400';
   }
 };
 
