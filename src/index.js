@@ -15,32 +15,68 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const WP_URL = process.env.WP_URL || 'http://wordpress:80';
 
-// 随机图片API（使用 Lorem Picsum）
-const RANDOM_IMAGE_API = 'https://picsum.photos/800/400';
+// ACG图片源配置
+const ACG_GITHUB_API = 'https://api.github.com/repos/jyeric/acg-random-pictures/contents/GitHub源';
+let acgImageList = null;
+let lastFetchTime = 0;
+const CACHE_DURATION = 3600000; // 1小时缓存
 
-// 获取随机图片
-const getRandomImage = async () => {
+// 获取ACG图片列表
+const fetchACGImageList = async () => {
   try {
-    const response = await axios.get(RANDOM_IMAGE_API, {
-      timeout: 5000,
-      maxRedirects: 5,
-      validateStatus: function (status) {
-        return status >= 200 && status < 400;
+    // 如果缓存有效且存在图片列表，直接返回
+    if (acgImageList && (Date.now() - lastFetchTime < CACHE_DURATION)) {
+      return acgImageList;
+    }
+
+    console.log('从GitHub获取ACG图片列表...');
+    const response = await axios.get(ACG_GITHUB_API, {
+      headers: {
+        'Accept': 'application/vnd.github.v3+json'
       }
     });
-    
-    // Lorem Picsum 会自动重定向到随机图片
-    if (response.request.res.responseUrl) {
-      return response.request.res.responseUrl;
+
+    // 过滤出图片文件
+    const images = response.data
+      .filter(file => /\.(jpg|jpeg|png|gif)$/i.test(file.name))
+      .map(file => file.download_url);
+
+    acgImageList = images;
+    lastFetchTime = Date.now();
+    console.log(`成功获取 ${images.length} 张ACG图片`);
+    return images;
+  } catch (error) {
+    console.error('获取ACG图片列表失败:', error);
+    // 如果有缓存的图片列表，使用缓存
+    if (acgImageList) {
+      console.log('使用缓存的图片列表');
+      return acgImageList;
+    }
+    throw error;
+  }
+};
+
+// 获取随机ACG图片
+const getRandomImage = async () => {
+  try {
+    const images = await fetchACGImageList();
+    if (!images || images.length === 0) {
+      throw new Error('没有可用的ACG图片');
     }
     
-    return RANDOM_IMAGE_API;
+    const randomIndex = Math.floor(Math.random() * images.length);
+    const imageUrl = images[randomIndex];
+    console.log('选择的随机ACG图片:', imageUrl);
+    return imageUrl;
   } catch (error) {
-    console.error('获取随机图片失败:', error);
+    console.error('获取随机ACG图片失败:', error);
     // 返回一个默认图片URL
     return 'https://picsum.photos/seed/default/800/400';
   }
 };
+
+// 预热图片缓存
+fetchACGImageList().catch(console.error);
 
 // 请求日志中间件
 app.use((req, res, next) => {
