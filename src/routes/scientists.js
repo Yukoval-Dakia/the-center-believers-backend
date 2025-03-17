@@ -218,8 +218,20 @@ router.post('/', async (req, res) => {
 });
 
 // 更新科学家信息
-router.patch('/:id', upload.single('image'), async (req, res) => {
+router.patch('/:id', async (req, res) => {
   try {
+    // 使用 Promise 包装 multer 中间件
+    await new Promise((resolve, reject) => {
+      upload(req, res, function(err) {
+        if (err) {
+          console.error('文件上传错误:', err);
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+
     const scientist = await Scientist.findById(req.params.id);
     if (!scientist) {
       return res.status(404).json({ message: '未找到该科学家' });
@@ -236,16 +248,26 @@ router.patch('/:id', upload.single('image'), async (req, res) => {
 
     if (req.file) {
       // 如果是文件上传
+      console.log('处理上传的图片文件:', req.file);
       // 删除旧的 Cloudinary 图片（如果存在）
       if (scientist.image && !scientist.image.startsWith('http')) {
-        await cloudinary.uploader.destroy(scientist.image);
+        try {
+          await cloudinary.uploader.destroy(scientist.image);
+        } catch (deleteError) {
+          console.error('删除旧图片失败:', deleteError);
+        }
       }
-      scientist.image = req.file.filename;
+      scientist.image = req.file.path;
     } else if (req.body.image && req.body.image.startsWith('http')) {
       // 如果是 URL 上传
+      console.log('处理图片 URL:', req.body.image);
       // 删除旧的 Cloudinary 图片（如果存在）
       if (scientist.image && !scientist.image.startsWith('http')) {
-        await cloudinary.uploader.destroy(scientist.image);
+        try {
+          await cloudinary.uploader.destroy(scientist.image);
+        } catch (deleteError) {
+          console.error('删除旧图片失败:', deleteError);
+        }
       }
       scientist.image = req.body.image;
     }
@@ -255,13 +277,19 @@ router.patch('/:id', upload.single('image'), async (req, res) => {
     // 在响应中添加完整的图片 URL
     const response = updatedScientist.toObject();
     if (!response.image.startsWith('http')) {
-      response.image = cloudinary.url(response.image);
-      response.thumbnail = cloudinary.url(response.image, {
-        width: 200,
-        height: 200,
-        crop: 'fill',
-        quality: 80
-      });
+      try {
+        response.image = cloudinary.url(response.image);
+        response.thumbnail = cloudinary.url(response.image, {
+          width: 200,
+          height: 200,
+          crop: 'fill',
+          quality: 80
+        });
+      } catch (urlError) {
+        console.error('生成图片 URL 失败:', urlError);
+        response.image = '';
+        response.thumbnail = '';
+      }
     } else {
       response.thumbnail = response.image;
     }
