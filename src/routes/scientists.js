@@ -44,6 +44,22 @@ router.get('/', async (req, res) => {
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
     
     const scientists = await Scientist.find().sort({ createdAt: -1 });
+    
+    // 为每个科学家生成完整的图片 URL
+    const scientistsWithUrls = scientists.map(scientist => {
+      const doc = scientist.toObject();
+      if (doc.image) {
+        doc.image = cloudinary.url(doc.image);
+        doc.thumbnail = cloudinary.url(doc.image, {
+          width: 200,
+          height: 200,
+          crop: 'fill',
+          quality: 80
+        });
+      }
+      return doc;
+    });
+    
     console.log('找到科学家数量:', scientists.length);
     
     // 返回空数组也是正常的
@@ -51,7 +67,7 @@ router.get('/', async (req, res) => {
       console.log('科学家列表为空，但这是正常的');
     }
     
-    return res.status(200).json(scientists);
+    return res.status(200).json(scientistsWithUrls);
   } catch (error) {
     console.error('获取科学家列表失败:', error);
     // 添加CORS头到错误响应
@@ -67,7 +83,20 @@ router.get('/:id', async (req, res) => {
     if (!scientist) {
       return res.status(404).json({ message: '未找到该科学家' });
     }
-    res.json(scientist);
+    
+    // 生成完整的图片 URL
+    const doc = scientist.toObject();
+    if (doc.image) {
+      doc.image = cloudinary.url(doc.image);
+      doc.thumbnail = cloudinary.url(doc.image, {
+        width: 200,
+        height: 200,
+        crop: 'fill',
+        quality: 80
+      });
+    }
+    
+    res.json(doc);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -101,29 +130,31 @@ router.post('/', upload.single('image'), async (req, res) => {
 
     if (req.file) {
       console.log('收到图片文件:', req.file);
-      // Cloudinary 已经自动上传了图片，我们可以直接使用返回的 URL
-      scientistData.image = req.file.path;
-      // 创建缩略图 URL
-      const thumbnailUrl = cloudinary.url(req.file.filename, {
-        width: 200,
-        height: 200,
-        crop: 'fill',
-        quality: 80
-      });
-      scientistData.thumbnail = thumbnailUrl;
-      console.log('处理后的图片路径:', { image: scientistData.image, thumbnail: scientistData.thumbnail });
+      // 存储 public_id
+      scientistData.image = req.file.filename;
+      console.log('处理后的图片数据:', { image: scientistData.image });
     } else {
       console.log('没有收到图片文件');
-      scientistData.image = req.body.image;
-      scientistData.thumbnail = req.body.thumbnail || req.body.image;
+      return res.status(400).json({ message: '请上传图片文件' });
     }
 
     console.log('准备创建科学家文档');
     const scientist = new Scientist(scientistData);
     console.log('保存科学家文档');
     const newScientist = await scientist.save();
-    console.log('科学家创建成功:', newScientist);
-    res.status(201).json(newScientist);
+    
+    // 在响应中添加完整的图片 URL
+    const response = newScientist.toObject();
+    response.image = cloudinary.url(response.image);
+    response.thumbnail = cloudinary.url(response.image, {
+      width: 200,
+      height: 200,
+      crop: 'fill',
+      quality: 80
+    });
+    
+    console.log('科学家创建成功:', response);
+    res.status(201).json(response);
   } catch (error) {
     console.error('创建科学家失败:', error);
     res.status(400).json({ message: error.message });
@@ -148,25 +179,27 @@ router.patch('/:id', upload.single('image'), async (req, res) => {
     if (req.body.color) scientist.color = req.body.color;
 
     if (req.file) {
-      // 如果有新图片上传，删除旧图片
+      // 删除旧图片
       if (scientist.image) {
-        const publicId = scientist.image.split('/').pop().split('.')[0];
-        await cloudinary.uploader.destroy(publicId);
+        await cloudinary.uploader.destroy(scientist.image);
       }
-
-      // 使用新上传的图片
-      scientist.image = req.file.path;
-      const thumbnailUrl = cloudinary.url(req.file.filename, {
-        width: 200,
-        height: 200,
-        crop: 'fill',
-        quality: 80
-      });
-      scientist.thumbnail = thumbnailUrl;
+      // 存储新图片的 public_id
+      scientist.image = req.file.filename;
     }
 
     const updatedScientist = await scientist.save();
-    res.json(updatedScientist);
+    
+    // 在响应中添加完整的图片 URL
+    const response = updatedScientist.toObject();
+    response.image = cloudinary.url(response.image);
+    response.thumbnail = cloudinary.url(response.image, {
+      width: 200,
+      height: 200,
+      crop: 'fill',
+      quality: 80
+    });
+    
+    res.json(response);
   } catch (error) {
     console.error('更新科学家失败:', error);
     res.status(400).json({ message: error.message });
@@ -183,8 +216,7 @@ router.delete('/:id', async (req, res) => {
 
     // 删除 Cloudinary 上的图片
     if (scientist.image) {
-      const publicId = scientist.image.split('/').pop().split('.')[0];
-      await cloudinary.uploader.destroy(publicId);
+      await cloudinary.uploader.destroy(scientist.image);
     }
 
     await Scientist.findByIdAndDelete(req.params.id);
