@@ -40,12 +40,26 @@ app.use((req, res, next) => {
 });
 
 // CORS配置
+const allowedOrigins = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [
+  'https://yukoval-dakia.github.io',
+  'http://localhost:3000',
+  'https://worship.yukovalstudios.com'
+];
+
 app.use(cors({
-  origin: ['https://yukoval-dakia.github.io', 'http://localhost:3000', 'https://worship.yukovalstudios.com'],
+  origin: function(origin, callback) {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('不允许的来源:', origin);
+      callback(new Error('不允许的来源'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  maxAge: 86400 // 预检请求结果缓存24小时
 }));
 
 // 基本中间件
@@ -63,6 +77,12 @@ app.use('/api/messages', messagesRouter);
 // 错误处理中间件
 app.use((err, req, res, next) => {
   console.error('全局错误:', err);
+  if (err.message === '不允许的来源') {
+    return res.status(403).json({
+      message: '不允许的来源',
+      error: err.message
+    });
+  }
   res.status(500).json({
     message: '服务器内部错误',
     error: err.message
