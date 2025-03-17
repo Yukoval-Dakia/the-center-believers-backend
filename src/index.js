@@ -282,22 +282,11 @@ app.get('/api/wordpress/posts', async (req, res) => {
         'Content-Type': 'application/json'
       },
       timeout: 5000 // 5秒超时
-    }).catch(error => {
-      console.error('WordPress.com API请求失败:', error.message);
-      console.error('完整错误信息:', error);
-      if (error.response) {
-        console.error('WordPress.com响应状态:', error.response.status);
-        console.error('WordPress.com响应数据:', error.response.data);
-        throw new Error(`WordPress.com返回错误: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
-      } else if (error.request) {
-        console.error('请求详情:', error.request);
-        throw new Error('无法连接到WordPress.com服务器');
-      } else {
-        throw error;
-      }
     });
+
+    console.log('WordPress.com API响应:', JSON.stringify(response.data, null, 2));
     
-    if (!response || !response.data || !response.data.posts) {
+    if (!response.data || !response.data.posts) {
       console.error('WordPress.com响应无数据');
       return res.status(404).json({ 
         message: '未找到文章',
@@ -305,14 +294,20 @@ app.get('/api/wordpress/posts', async (req, res) => {
       });
     }
 
-    const optimizedPosts = response.data.posts.map(post => {
-      if (post.content) {
-        post.content = optimizeContent(post.content);
+    // 转换数据格式以匹配前端期望的格式
+    const formattedPosts = response.data.posts.map(post => ({
+      ID: post.ID,
+      title: post.title,
+      excerpt: post.excerpt,
+      content: post.content,
+      date: post.date,
+      featured_image: post.featured_image,
+      author: {
+        name: post.author ? post.author.name : '未知作者'
       }
-      return post;
-    });
+    }));
 
-    res.json(optimizedPosts);
+    res.json(formattedPosts);
   } catch (error) {
     console.error('处理WordPress.com文章时出错:', error);
     res.status(500).json({
@@ -344,17 +339,25 @@ app.get('/api/wordpress/posts/:id', async (req, res) => {
       },
       timeout: 5000
     });
+
+    console.log('WordPress.com API单篇文章响应:', JSON.stringify(response.data, null, 2));
     
     if (!response.data) {
       return res.status(404).json({ message: '未找到文章' });
     }
 
-    // 优化内容
-    if (response.data.content) {
-      response.data.content = optimizeContent(response.data.content);
-    }
+    // 转换数据格式以匹配前端期望的格式
+    const formattedPost = {
+      ID: response.data.ID,
+      title: response.data.title,
+      content: response.data.content,
+      date: response.data.date,
+      author: {
+        name: response.data.author ? response.data.author.name : '未知作者'
+      }
+    };
     
-    res.json(response.data);
+    res.json(formattedPost);
   } catch (error) {
     console.error('WordPress.com API错误:', error);
     res.status(500).json({ 
