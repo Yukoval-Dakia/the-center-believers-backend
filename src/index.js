@@ -28,10 +28,12 @@ function convertToCDN(githubUrl, country) {
     return githubUrl
       .replace('https://raw.githubusercontent.com', 'https://cdn.jsdmirror.com/gh')
       .replace('/master/', '/');
+      console.log('使用中国CDN:', githubUrl);
   } else {
     return githubUrl
       .replace('https://raw.githubusercontent.com', 'https://cdn.jsdelivr.net/gh')
       .replace('/master/', '/');
+      console.log('使用外国CDN:', githubUrl);
   }
 }
 
