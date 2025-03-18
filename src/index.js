@@ -28,12 +28,12 @@ function convertToCDN(githubUrl, country) {
     return githubUrl
       .replace('https://raw.githubusercontent.com', 'https://cdn.jsdmirror.com/gh')
       .replace('/master/', '/');
-      console.log('使用中国CDN:', githubUrl);
+    console.log('使用中国CDN:', githubUrl);
   } else {
     return githubUrl
       .replace('https://raw.githubusercontent.com', 'https://cdn.jsdelivr.net/gh')
       .replace('/master/', '/');
-      console.log('使用外国CDN:', githubUrl);
+    console.log('使用外国CDN:', githubUrl);
   }
 }
 
@@ -459,7 +459,7 @@ app.get('/api/wordpress/posts/:id', async (req, res) => {
     let featured_image = response.data.featured_image;
     if (!featured_image) {
       console.log(`文章 ${id} 没有封面图片，尝试获取随机图片`);
-      featured_image = await getRandomImage();
+      featured_image = await getRandomImage(country);
       console.log(`文章 ${id} 使用随机图片:`, featured_image);
     }
 
