@@ -23,10 +23,16 @@ let lastFetchTime = 0;
 const CACHE_DURATION = 3600000; // 1小时缓存
 
 // 使用 CDN 加速 GitHub raw 内容
-function convertToJsdelivr(githubUrl) {
-  return githubUrl
-    .replace('https://raw.githubusercontent.com', 'https://cdn.jsdmirror.com/gh')
-    .replace('/master/', '/');
+function convertToCDN(githubUrl, country) {
+  if (country === 'CN') {
+    return githubUrl
+      .replace('https://raw.githubusercontent.com', 'https://cdn.jsdmirror.com/gh')
+      .replace('/master/', '/');
+  } else {
+    return githubUrl
+      .replace('https://raw.githubusercontent.com', 'https://cdn.jsdelivr.net/gh')
+      .replace('/master/', '/');
+  }
 }
 
 // 获取ACG图片列表
@@ -70,7 +76,7 @@ const getRandomImage = async () => {
     // 直接从预加载的列表中随机选择
     const randomImage = ACG_IMAGES[Math.floor(Math.random() * ACG_IMAGES.length)];
     // 使用 jsDelivr CDN
-    return convertToJsdelivr(randomImage);
+    return convertToCDN(randomImage, req.headers['cf-ipcountry']);
   } catch (error) {
     console.error('获取随机图片失败:', error);
     // 如果出错则使用 Picsum 作为后备
@@ -89,6 +95,9 @@ app.use((req, res, next) => {
     body: req.body,
     headers: req.headers
   });
+  const country = req.headers['cf-ipcountry'];
+  // 使用 convertToCDN 函数时传入 country 参数
+  // 例如：const cdnUrl = convertToCDN(someGithubUrl, country);
   next();
 });
 
