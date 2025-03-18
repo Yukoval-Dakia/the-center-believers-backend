@@ -23,16 +23,15 @@ let lastFetchTime = 0;
 const CACHE_DURATION = 3600000; // 1小时缓存
 
 // 使用 CDN 加速 GitHub raw 内容
-function convertToCDN(githubUrl) {
-  const country = req.headers['cf-ipcountry'];
-  if (country === 'CN' || country === ' CN') {
+function convertToCDN(githubUrl, country) {
+  if (country === 'CN') {
     console.log('使用中国CDN:', githubUrl);
     console.log('国家:', country);
     return githubUrl
       .replace('https://raw.githubusercontent.com', 'https://cdn.jsdmirror.com/gh')
       .replace('/master/', '/');
   } else {
-    console.log('使用外国CDN:', githubUrl);
+    console.log('使用国际CDN:', githubUrl);
     console.log('国家:', country);
     return githubUrl
       .replace('https://raw.githubusercontent.com', 'https://cdn.jsdelivr.net/gh')
@@ -76,12 +75,12 @@ const fetchACGImageList = async () => {
 };
 
 // 获取随机ACG图片
-const getRandomImage = async () => {
+const getRandomImage = async (country) => {
   try {
     // 直接从预加载的列表中随机选择
     const randomImage = ACG_IMAGES[Math.floor(Math.random() * ACG_IMAGES.length)];
     // 使用 jsDelivr CDN
-    return convertToCDN(randomImage);
+    return convertToCDN(randomImage, country);
   } catch (error) {
     console.error('获取随机图片失败:', error);
     // 如果出错则使用 Picsum 作为后备
@@ -100,8 +99,8 @@ app.use((req, res, next) => {
     body: req.body,
     headers: req.headers
   });
-  // 使用 convertToCDN 函数时传入 country 参数
-  // 例如：const cdnUrl = convertToCDN(someGithubUrl, country);
+  // 将国家代码添加到req对象中，便于后续使用
+  req.country = req.headers['cf-ipcountry'] || '';
   next();
 });
 
@@ -344,7 +343,7 @@ app.get('/api/wordpress/pages/:slug', async (req, res) => {
       content: {
         rendered: page.content
       },
-      featured_media: page.featured_image || await getRandomImage(),
+      featured_media: page.featured_image || await getRandomImage(req.country),
       _embedded: {
         author: [{
           name: page.author ? page.author.name : '未知作者'
@@ -400,7 +399,7 @@ app.get('/api/wordpress/posts', async (req, res) => {
       // 如果没有封面图片，获取随机图片
       if (!featured_image) {
         console.log(`文章 ${post.ID} 没有封面图片，尝试获取随机图片`);
-        featured_image = await getRandomImage();
+        featured_image = await getRandomImage(req.country);
         console.log(`文章 ${post.ID} 使用随机图片:`, featured_image);
       }
 
@@ -460,7 +459,7 @@ app.get('/api/wordpress/posts/:id', async (req, res) => {
     let featured_image = response.data.featured_image;
     if (!featured_image) {
       console.log(`文章 ${id} 没有封面图片，尝试获取随机图片`);
-      featured_image = await getRandomImage();
+      featured_image = await getRandomImage(req.country);
       console.log(`文章 ${id} 使用随机图片:`, featured_image);
     }
 
