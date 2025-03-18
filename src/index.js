@@ -26,6 +26,7 @@ const CACHE_DURATION = 3600000; // 1小时缓存
 function convertToCDN(githubUrl, country) {
   if (country === 'CN' || country === ' CN') {
     console.log('使用中国CDN:', githubUrl);
+    console.log('国家:', country);
     return githubUrl
       .replace('https://raw.githubusercontent.com', 'https://cdn.jsdmirror.com/gh')
       .replace('/master/', '/');
@@ -98,7 +99,6 @@ app.use((req, res, next) => {
     headers: req.headers
   });
   const country = req.headers['cf-ipcountry'];
-  console.log('国家:', country);
   // 使用 convertToCDN 函数时传入 country 参数
   // 例如：const cdnUrl = convertToCDN(someGithubUrl, country);
   next();
