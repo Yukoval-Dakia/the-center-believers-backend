@@ -25,7 +25,7 @@ const CACHE_DURATION = 3600000; // 1小时缓存
 // 使用 CDN 加速 GitHub raw 内容
 function convertToJsdelivr(githubUrl) {
   return githubUrl
-    .replace('https://raw.githubusercontent.com', 'https://cdn.jsdelivr.net/gh')
+    .replace('https://raw.githubusercontent.com', 'https://cdn.jsdmirror.com/gh')
     .replace('/master/', '/');
 }
 
@@ -183,8 +183,8 @@ const connectWithRetry = () => {
       });
 
       // 处理进程信号
-      process.on('SIGTERM', () => {
-        console.log('收到 SIGTERM 信号，正在关闭服务器...');
+      process.on('', () => {
+        console.log('收到  信号，正在关闭服务器...');
         server.close(() => {
           console.log('服务器已关闭');
           process.exit(0);
