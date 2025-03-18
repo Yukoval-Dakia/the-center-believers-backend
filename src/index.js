@@ -24,16 +24,16 @@ const CACHE_DURATION = 3600000; // 1小时缓存
 
 // 使用 CDN 加速 GitHub raw 内容
 function convertToCDN(githubUrl, country) {
-  if (country === 'CN') {
+  if (country === 'CN' || country === ' CN') {
+    console.log('使用中国CDN:', githubUrl);
     return githubUrl
       .replace('https://raw.githubusercontent.com', 'https://cdn.jsdmirror.com/gh')
       .replace('/master/', '/');
-    console.log('使用中国CDN:', githubUrl);
   } else {
+    console.log('使用外国CDN:', githubUrl);
     return githubUrl
       .replace('https://raw.githubusercontent.com', 'https://cdn.jsdelivr.net/gh')
       .replace('/master/', '/');
-    console.log('使用外国CDN:', githubUrl);
   }
 }
 
