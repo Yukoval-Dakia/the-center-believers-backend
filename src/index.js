@@ -23,7 +23,7 @@ let lastFetchTime = 0;
 const CACHE_DURATION = 3600000; // 1小时缓存
 
 // 使用 CDN 加速 GitHub raw 内容
-function convertToCDN(githubUrl, country) {
+function convertToCDN(githubUrl) {
   const country = req.headers['cf-ipcountry'];
   if (country === 'CN' || country === ' CN') {
     console.log('使用中国CDN:', githubUrl);
@@ -76,12 +76,12 @@ const fetchACGImageList = async () => {
 };
 
 // 获取随机ACG图片
-const getRandomImage = async (country) => {
+const getRandomImage = async () => {
   try {
     // 直接从预加载的列表中随机选择
     const randomImage = ACG_IMAGES[Math.floor(Math.random() * ACG_IMAGES.length)];
     // 使用 jsDelivr CDN
-    return convertToCDN(randomImage, country);
+    return convertToCDN(randomImage);
   } catch (error) {
     console.error('获取随机图片失败:', error);
     // 如果出错则使用 Picsum 作为后备
@@ -460,7 +460,7 @@ app.get('/api/wordpress/posts/:id', async (req, res) => {
     let featured_image = response.data.featured_image;
     if (!featured_image) {
       console.log(`文章 ${id} 没有封面图片，尝试获取随机图片`);
-      featured_image = await getRandomImage(country);
+      featured_image = await getRandomImage();
       console.log(`文章 ${id} 使用随机图片:`, featured_image);
     }
 
