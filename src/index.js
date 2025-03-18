@@ -76,7 +76,7 @@ const getRandomImage = async () => {
     // 直接从预加载的列表中随机选择
     const randomImage = ACG_IMAGES[Math.floor(Math.random() * ACG_IMAGES.length)];
     // 使用 jsDelivr CDN
-    return convertToCDN(randomImage, req.headers['cf-ipcountry']);
+    return convertToCDN(randomImage, country);
   } catch (error) {
     console.error('获取随机图片失败:', error);
     // 如果出错则使用 Picsum 作为后备
@@ -96,6 +96,7 @@ app.use((req, res, next) => {
     headers: req.headers
   });
   const country = req.headers['cf-ipcountry'];
+  console.log('国家:', country);
   // 使用 convertToCDN 函数时传入 country 参数
   // 例如：const cdnUrl = convertToCDN(someGithubUrl, country);
   next();
