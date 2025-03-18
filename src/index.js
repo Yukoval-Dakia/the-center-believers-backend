@@ -71,7 +71,7 @@ const fetchACGImageList = async () => {
 };
 
 // 获取随机ACG图片
-const getRandomImage = async () => {
+const getRandomImage = async (country) => {
   try {
     // 直接从预加载的列表中随机选择
     const randomImage = ACG_IMAGES[Math.floor(Math.random() * ACG_IMAGES.length)];
