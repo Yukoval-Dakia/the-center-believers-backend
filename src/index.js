@@ -32,6 +32,7 @@ function convertToCDN(githubUrl, country) {
       .replace('/master/', '/');
   } else {
     console.log('使用外国CDN:', githubUrl);
+    console.log('国家:', country);
     return githubUrl
       .replace('https://raw.githubusercontent.com', 'https://cdn.jsdelivr.net/gh')
       .replace('/master/', '/');
