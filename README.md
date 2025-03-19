@@ -81,3 +81,7 @@ CLOUDINARY_API_SECRET=your_api_secret
 
 ## 接口文档
 API接口包括科学家信息管理和消息处理等功能，详细文档请参考代码中的路由定义。
+
+## 许可证
+
+本项目采用MIT许可证。详情请参阅[LICENSE](LICENSE)文件。
