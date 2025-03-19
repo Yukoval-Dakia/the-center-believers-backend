@@ -1,7 +1,7 @@
 {
-  "name": "center-believer-backend",
+  "name": "Stone",
   "version": "1.0.0",
-  "description": "拜中心会后端服务",
+  "description": "Backend for Pine",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
